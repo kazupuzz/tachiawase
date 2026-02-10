@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>たちあわせパズル（JSON貼り付け対応版）</title>
+    <title>たちあわせパズル - 統合ツール</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- ドラッグ＆ドロップ用 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
@@ -13,170 +13,136 @@
     <style>
         body {
             font-family: 'Inter', 'Noto Sans JP', sans-serif;
-            touch-action: none; 
-            overflow: hidden; 
-            user-select: none; 
+            touch-action: none;
+            overflow: hidden;
+            user-select: none;
         }
         canvas {
             display: block;
             margin: auto;
-        }
-        #gameCanvas {
-            cursor: pointer;
             border-radius: 0.5rem;
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
         }
-        
-        @keyframes pop-in {
-            0% { transform: scale(0.8); opacity: 0; }
-            80% { transform: scale(1.05); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes text-shine {
-            0% { background-position: -200% center; }
-            100% { background-position: 200% center; }
-        }
-
         .message-overlay {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             background-color: rgba(255, 255, 255, 0.85);
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            border-radius: 0.5rem;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-            z-index: 40;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            border-radius: 0.5rem; pointer-events: none; opacity: 0;
+            transition: opacity 0.3s; z-index: 40;
         }
-        .message-overlay.show {
-            display: flex;
-            opacity: 1;
-            pointer-events: all;
-            animation: pop-in 0.4s ease-out;
-        }
+        .message-overlay.show { display: flex; opacity: 1; pointer-events: all; animation: pop-in 0.4s ease-out; }
+        @keyframes pop-in { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         #message-text {
-            font-size: 3rem;
-            font-weight: 800;
-            background: linear-gradient(to right, #4F46E5, #10B981, #F59E0B, #4F46E5);
-            background-size: 200% auto;
-            color: transparent;
-            background-clip: text;
-            -webkit-background-clip: text;
-            animation: text-shine 2s linear infinite;
+            font-size: 3rem; font-weight: 800; background-clip: text; -webkit-background-clip: text; color: transparent;
+            background-image: linear-gradient(to right, #4F46E5, #10B981, #F59E0B, #4F46E5);
+            background-size: 200% auto; animation: text-shine 2s linear infinite;
         }
+        @keyframes text-shine { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
         
-        #resetButton {
-            position: absolute;
-            top: 0.75rem;
-            right: 0.75rem;
-            z-index: 10;
-        }
-
-        #editor-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: rgba(241, 245, 249, 0.95);
-            z-index: 50;
-            display: none;
-            flex-direction: column;
-            padding: 1rem;
-            overflow-y: auto;
-            touch-action: pan-y;
-        }
-        #editor-overlay.active {
-            display: flex;
-        }
-        .problem-card {
-            touch-action: none;
-            cursor: grab;
-            transition: transform 0.1s, box-shadow 0.1s;
-        }
-        .problem-card:active {
-            cursor: grabbing;
-            transform: scale(1.02);
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-            z-index: 10;
-        }
-        .sortable-ghost {
-            opacity: 0.4;
-            background-color: #e2e8f0;
-            border: 2px dashed #94a3b8;
-        }
+        #resetButton { position: absolute; top: 0.75rem; right: 0.75rem; z-index: 100 !important; }
+        
+        .tab-active { border-bottom: 3px solid #4f46e5; color: #4f46e5; font-weight: bold; }
+        .hidden { display: none !important; }
     </style>
 </head>
-<body class="bg-slate-100 flex flex-col md:flex-row justify-start items-start h-screen p-4 gap-4">
+<body class="bg-slate-100 flex flex-col h-screen">
 
-    <!-- UIパネル -->
-    <div id="ui-panel" class="w-full md:w-auto md:max-w-xs flex-shrink-0 space-y-4">
-        <div class="bg-white p-4 rounded-lg shadow-md space-y-2">
-            <h1 id="targetDisplay" class="text-xl font-bold text-slate-700 border-b pb-2">もくひょう： </h1>
-            <div id="judge-feedback" class="text-sm font-medium p-2 rounded bg-slate-50 text-slate-500 min-h-[3rem] flex items-center">
-                パズルをあわせてみよう
-            </div>
-        </div>
+    <header class="bg-white shadow-sm flex-shrink-0">
+        <nav class="flex justify-center gap-8 py-2">
+            <button id="tab-play" class="px-4 py-2 text-slate-600 transition-all tab-active">パズルを解く</button>
+            <button id="tab-create" class="px-4 py-2 text-slate-600 transition-all">新しい問題を作る</button>
+        </nav>
+    </header>
+
+    <main class="flex-grow flex flex-col md:flex-row p-4 gap-4 overflow-hidden">
         
-        <div class="bg-white p-4 rounded-lg shadow-md space-y-3">
-            <div>
-                <label for="problem-select" class="text-slate-600 mr-2 text-sm font-bold">もんだい:</label>
-                <select id="problem-select" class="w-full p-2 mt-1 rounded-md border border-slate-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-lg">
-                </select>
-            </div>
-            <button id="editOrderButton" class="w-full flex items-center justify-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-4 rounded-md transition-colors text-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-                じゅんばんをかえる
-            </button>
-        </div>
-    </div>
-
-    <!-- ゲーム盤面 -->
-    <div id="game-container" class="w-full max-w-xl mx-auto md:mx-0 flex-grow relative">
-        <div class="relative w-full">
-            <canvas id="gameCanvas"></canvas>
-            
-            <div id="message" class="message-overlay">
-                <span id="message-text">クリア！ 🎊</span>
-                <button id="nextButton" class="mt-4 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all duration-200 transform hover:scale-105">
-                    つぎへ
-                </button>
-            </div>
-
-            <button id="resetButton" class="bg-slate-600 hover:bg-slate-700 text-white font-bold p-2 rounded-full shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-            </button>
-        </div>
-    </div>
-
-    <!-- 編集モード（並べ替え） -->
-    <div id="editor-overlay">
-        <div class="max-w-4xl mx-auto w-full flex flex-col h-full">
-            <div class="flex flex-col md:flex-row justify-between items-center mb-4 flex-shrink-0 gap-2">
-                <h2 class="text-2xl font-bold text-slate-700">もんだいの じゅんばん</h2>
-                <div class="flex gap-2 flex-wrap justify-center">
-                    <button id="downloadImagesButton" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center gap-1">
-                        がぞうをダウンロード
-                    </button>
-                    <button id="cancelEditButton" class="bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-2 px-4 rounded-lg">
-                        やめる
-                    </button>
-                    <button id="saveEditButton" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
-                        ほぞんする
-                    </button>
+        <div id="panel-play" class="w-full md:w-auto md:max-w-xs flex-shrink-0 space-y-4 overflow-y-auto">
+            <div class="bg-white p-4 rounded-lg shadow-md space-y-2">
+                <h1 id="targetDisplay" class="text-xl font-bold text-slate-700 border-b pb-2">もくひょう： </h1>
+                <div id="judge-feedback" class="text-sm font-medium p-2 rounded bg-slate-50 text-slate-500 min-h-[3rem] flex items-center leading-snug">
+                    パズルをあわせてみよう
                 </div>
             </div>
-            <div id="sortable-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-8"></div>
+            
+            <div class="bg-white p-4 rounded-lg shadow-md space-y-3">
+                <div>
+                    <label class="text-slate-600 text-sm font-bold">もんだい:</label>
+                    <select id="problem-select" class="w-full p-2 mt-1 rounded-md border border-slate-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-lg"></select>
+                </div>
+                <button id="editOrderButton" class="w-full flex items-center justify-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-4 rounded-md transition-colors text-sm">
+                    じゅんばんをかえる
+                </button>
+                <button id="editShapeButton" class="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-indigo-50 text-slate-700 font-bold py-2 px-4 rounded-md transition-all border border-slate-200 text-sm">
+                    いまの問題を編集
+                </button>
+                <button id="copyJsonButton" class="hidden w-full flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold py-2 px-4 rounded-md transition-all border border-emerald-200 text-sm">
+                    編集データをコピー
+                </button>
+            </div>
+        </div>
+
+        <div id="panel-create" class="hidden w-full md:w-auto md:max-w-xs flex-shrink-0 space-y-4 overflow-y-auto">
+            <div class="bg-white p-4 rounded-lg shadow-md space-y-4">
+                <h2 class="text-lg font-bold text-slate-700 border-b pb-2">問題の設定</h2>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600">名前 (name)</label>
+                    <input type="text" id="create-name" value="new_problem" class="mt-1 block w-full p-2 rounded-md border border-slate-300">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600">並び順 (sortingnum)</label>
+                    <input type="number" id="create-sortingnum" value="1" class="mt-1 block w-full p-2 rounded-md border border-slate-300">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600">お題の形</label>
+                    <select id="create-shape" class="mt-1 block w-full p-2 rounded-md border border-slate-300">
+                        <option value="Square">四角形</option>
+                        <option value="Triangle">三角形</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button id="create-undo" class="flex-1 bg-slate-500 text-white font-bold py-2 rounded">戻す</button>
+                    <button id="create-clear" class="flex-1 bg-red-500 text-white font-bold py-2 rounded">消去</button>
+                </div>
+            </div>
+            
+            <div class="bg-white p-4 rounded-lg shadow-md space-y-3">
+                <h2 class="text-lg font-bold text-slate-700 border-b pb-2">コード出力</h2>
+                <button id="create-output" class="w-full bg-indigo-500 text-white font-bold py-3 rounded shadow-md">JSONを生成</button>
+                <textarea id="create-json-result" rows="8" class="w-full p-2 font-mono text-[10px] bg-slate-800 text-green-300 rounded" readonly placeholder="ここにデータが出ます"></textarea>
+                <button id="create-copy" class="w-full bg-emerald-500 text-white font-bold py-2 rounded">コピーする</button>
+            </div>
+        </div>
+
+        <div id="game-area" class="flex-grow relative flex items-start justify-center">
+            <div class="relative inline-block">
+                <canvas id="gameCanvas"></canvas>
+                
+                <div id="message" class="message-overlay">
+                    <span id="message-text">クリア！ 🎊</span>
+                    <button id="nextButton" class="mt-4 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all">つぎへ</button>
+                </div>
+
+                <button id="resetButton" title="やりなおす" class="bg-slate-600 hover:bg-slate-700 text-white font-bold p-2 rounded-full shadow-md transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <div id="editor-overlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[90] hidden flex items-center justify-center p-4">
+        <div class="bg-white max-w-4xl w-full h-[90vh] flex flex-col rounded-xl shadow-2xl overflow-hidden">
+            <div class="flex justify-between items-center p-4 bg-white border-b">
+                <h2 class="text-2xl font-bold text-slate-700">問題のじゅんばん</h2>
+                <div class="flex gap-2">
+                    <button id="downloadImagesButton" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold transition-colors">画像をDL</button>
+                    <button id="cancelEditButton" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg transition-colors">閉じる</button>
+                    <button id="saveEditButton" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-md transition-colors">保存</button>
+                </div>
+            </div>
+            <div id="sortable-list" class="flex-grow grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-6 overflow-y-auto bg-slate-50"></div>
         </div>
     </div>
 
@@ -185,157 +151,159 @@
         const ctx = canvas.getContext('2d');
         const targetDisplayEl = document.getElementById('targetDisplay'); 
         const feedbackEl = document.getElementById('judge-feedback');
-        const gameContainerEl = document.getElementById('game-container');
         const resetButton = document.getElementById('resetButton');
         const messageEl = document.getElementById('message');
-        const messageTextEl = document.getElementById('message-text');
         const nextButton = document.getElementById('nextButton');
         const problemSelectEl = document.getElementById('problem-select');
+        
+        const tabPlay = document.getElementById('tab-play');
+        const tabCreate = document.getElementById('tab-create');
+        const panelPlay = document.getElementById('panel-play');
+        const panelCreate = document.getElementById('panel-create');
         const editOrderButton = document.getElementById('editOrderButton');
-        const editorOverlay = document.getElementById('editor-overlay');
-        const cancelEditButton = document.getElementById('cancelEditButton');
-        const saveEditButton = document.getElementById('saveEditButton');
-        const sortableListEl = document.getElementById('sortable-list');
-        const downloadImagesButton = document.getElementById('downloadImagesButton');
+        const editShapeButton = document.getElementById('editShapeButton');
+        const copyJsonButton = document.getElementById('copyJsonButton');
+
+        const createName = document.getElementById('create-name');
+        const createSortingNum = document.getElementById('create-sortingnum');
+        const createShapeSelect = document.getElementById('create-shape');
+        const createUndo = document.getElementById('create-undo');
+        const createClear = document.getElementById('create-clear');
+        const createOutput = document.getElementById('create-output');
+        const createJsonResult = document.getElementById('create-json-result');
+        const createCopy = document.getElementById('create-copy');
 
         const GRID_SIZE = 28;
         const VERTEX_RADIUS = 8;
         const CLICK_RADIUS = 20;
-        const MAX_GRID_ROWS = 15;
 
         let problems = [];
+        let currentMode = 'play'; 
+        let sortableInstance = null; 
+        let gameState = { 
+            problemId: 0, phase: 'cut', polygons: [], 
+            selectedVertices: [], draggedPolygon: null, dragOffset: {x:0,y:0},
+            isEditingCurrent: false,
+            draggedVertexIdx: -1 
+        };
 
-        // JSONデータの読み込み処理
+        let createVertices = [];
+
         function loadProblemsData() {
             const dataElement = document.getElementById('questions-data');
+            if (!dataElement) return;
             try {
                 const rawData = JSON.parse(dataElement.textContent);
-                if (rawData && rawData.questions) {
-                    problems = rawData.questions;
-                } else {
-                    console.error("JSONの形式が正しくありません。'questions'配列が必要です。");
-                }
+                if (rawData && rawData.questions) problems = rawData.questions;
             } catch (e) {
-                console.error("JSONのパースに失敗しました。末尾の貼り付け場所を確認してください。", e);
-                // データがない場合のデフォルト（空にならないように）
-                problems = [{ "name": "NO DATA", "target_shape_name": "Square", "target_vertex_count": 4, "initial_vertices": [{"x":4,"y":4},{"x":10,"y":4},{"x":10,"y":10},{"x":4,"y":10}] }];
+                console.error("JSON Error", e);
+                problems = [{ "name": "DEMO", "target_shape_name": "Square", "target_vertex_count": 4, "initial_vertices": [{"x":4,"y":4},{"x":10,"y":4},{"x":10,"y":10},{"x":4,"y":10}] }];
             }
             problems.forEach(p => { if (p.isCleared === undefined) p.isCleared = false; });
         }
 
-        let gameState = { problemId: 0, phase: 'cut', polygons: [] };
-
-        // 編集モード関連
-        let sortableInstance = null;
-        editOrderButton.onclick = () => {
-            renderEditorList();
-            editorOverlay.classList.add('active');
-            if (sortableInstance) sortableInstance.destroy();
-            sortableInstance = new Sortable(sortableListEl, { animation: 150, ghostClass: 'sortable-ghost', delay: 100 });
-        };
-        cancelEditButton.onclick = () => editorOverlay.classList.remove('active');
-        saveEditButton.onclick = () => {
-            const newOrderIndices = Array.from(sortableListEl.children).map(el => parseInt(el.dataset.index));
-            const currentProblem = problems[gameState.problemId];
-            problems = newOrderIndices.map(index => problems[index]);
-            gameState.problemId = problems.indexOf(currentProblem);
-            setupProblemSelect();
+        tabPlay.onclick = () => {
+            currentMode = 'play';
+            tabPlay.classList.add('tab-active');
+            tabCreate.classList.remove('tab-active');
+            panelPlay.classList.remove('hidden');
+            panelCreate.classList.add('hidden');
             init(gameState.problemId);
-            editorOverlay.classList.remove('active');
+        };
+        tabCreate.onclick = () => {
+            currentMode = 'create';
+            tabPlay.classList.remove('tab-active');
+            tabCreate.classList.add('tab-active');
+            panelPlay.classList.add('hidden');
+            panelCreate.classList.remove('hidden');
+            messageEl.classList.remove('show');
+            gameState.phase = 'create-mode';
+            updateFeedback("図形を作ってみよう");
+            resizeCanvas();
         };
 
-        // ダウンロード
-        downloadImagesButton.onclick = async () => {
-            downloadImagesButton.disabled = true;
-            const originalText = downloadImagesButton.textContent;
-            downloadImagesButton.textContent = "さくせいちゅう...";
-            try {
-                const zip = new JSZip();
-                const promises = problems.map((p, i) => new Promise(r => {
-                    const c = document.createElement('canvas'); c.width = 400; c.height = 400;
-                    drawThumbnail(c, p.initial_vertices, p.target_shape_name, true);
-                    c.toBlob(b => { 
-                        zip.file(`${i+1}_${p.name}.png`, b); 
-                        r(); 
-                    });
-                }));
-                await Promise.all(promises);
-                saveAs(await zip.generateAsync({type: "blob"}), "tachiawase_puzzles.zip");
-            } catch(e) { alert("ダウンロードに失敗しました。"); }
-            downloadImagesButton.textContent = originalText;
-            downloadImagesButton.disabled = false;
-        };
-
-        function renderEditorList() {
-            sortableListEl.innerHTML = '';
-            problems.forEach((p, i) => {
-                const card = document.createElement('div');
-                card.className = 'problem-card bg-white p-2 rounded-lg shadow border border-slate-200 flex flex-col items-center justify-between h-44 relative';
-                card.dataset.index = i;
-                const tc = document.createElement('canvas'); tc.width = 120; tc.height = 120;
-                drawThumbnail(tc, p.initial_vertices, p.target_shape_name);
-                card.innerHTML = `<div class="text-xs font-bold text-slate-700 w-full truncate text-center">${p.name}</div>${p.isCleared ? '<span class="absolute top-1 right-1 text-yellow-500">★</span>' : ''}`;
-                card.insertBefore(tc, card.firstChild);
-                sortableListEl.appendChild(card);
-            });
-        }
-
-        function drawThumbnail(canvas, vertices, targetShape, isDownload = false) {
-            const ctx = canvas.getContext('2d');
-            if (isDownload) { ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width,canvas.height); }
-            else ctx.clearRect(0,0,canvas.width,canvas.height);
-            if (!vertices || !vertices.length) return;
-            
-            let minX = Math.min(...vertices.map(v=>v.x)), maxX = Math.max(...vertices.map(v=>v.x));
-            let minY = Math.min(...vertices.map(v=>v.y)), maxY = Math.max(...vertices.map(v=>v.y));
-            const scale = Math.min(canvas.width/(maxX-minX||1), canvas.height/(maxY-minY||1)) * 0.7;
-            const ox = (canvas.width - (maxX-minX)*scale)/2 - minX*scale, oy = (canvas.height - (maxY-minY)*scale)/2 - minY*scale;
-
-            ctx.fillStyle = '#818cf8'; ctx.beginPath();
-            ctx.moveTo(vertices[0].x*scale+ox, vertices[0].y*scale+oy);
-            vertices.forEach(v => ctx.lineTo(v.x*scale+ox, v.y*scale+oy));
-            ctx.closePath(); ctx.fill();
-            ctx.strokeStyle = '#312e81'; ctx.lineWidth = isDownload?3:2; ctx.stroke();
-
-            vertices.forEach(v => {
-                ctx.fillStyle = '#ef4444'; ctx.beginPath();
-                ctx.arc(v.x*scale+ox, v.y*scale+oy, isDownload?7.5:4.5, 0, Math.PI*2);
-                ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = isDownload?2:1.5; ctx.stroke();
-            });
-
-            if (targetShape) {
-                const isize = canvas.width * 0.22;
-                ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(10+isize/2, 10+isize/2, isize/2+2, 0, 7); ctx.fill();
-                if (targetShape === 'Triangle') {
-                    ctx.fillStyle = '#6366f1'; ctx.beginPath(); ctx.moveTo(10+isize/2, 14); ctx.lineTo(6+isize, 6+isize); ctx.lineTo(14, 6+isize); ctx.fill();
-                } else {
-                    ctx.fillStyle = '#10b981'; ctx.fillRect(15, 15, isize-10, isize-10);
-                }
+        editShapeButton.onclick = () => {
+            if (gameState.phase === 'cleared') init(gameState.problemId);
+            gameState.isEditingCurrent = !gameState.isEditingCurrent;
+            if (gameState.isEditingCurrent) {
+                gameState.phase = 'edit';
+                editShapeButton.innerHTML = `編集を完了する`;
+                editShapeButton.classList.add('bg-indigo-500', 'text-white');
+                copyJsonButton.classList.remove('hidden');
+                updateFeedback("点をドラッグで移動、右クリックで消去、空白クリックで追加");
+            } else {
+                gameState.phase = 'cut';
+                editShapeButton.innerHTML = `いまの問題を編集`;
+                editShapeButton.classList.remove('bg-indigo-500', 'text-white');
+                copyJsonButton.classList.add('hidden');
+                init(gameState.problemId, gameState.polygons[0].vertices);
             }
+        };
+
+        copyJsonButton.onclick = () => {
+            const currentObj = problems[gameState.problemId];
+            const { isCleared, ...exportedBase } = currentObj;
+            const exported = { ...exportedBase, initial_vertices: gameState.polygons[0].vertices };
+            copyFormattedJson(exported);
+            updateFeedback("クリップボードにコピーしました！");
+        };
+
+        createUndo.onclick = () => { createVertices.pop(); draw(); };
+        createClear.onclick = () => { createVertices = []; draw(); };
+        createOutput.onclick = () => {
+            if (createVertices.length < 3) return updateFeedback("頂点が3つ以上必要です", true);
+            const exported = {
+                name: createName.value || "new_problem",
+                sortingnum: parseInt(createSortingNum.value, 10) || 1,
+                target_shape_name: createShapeSelect.value,
+                target_vertex_count: (createShapeSelect.value === 'Square') ? 4 : 3,
+                initial_vertices: createVertices
+            };
+            createJsonResult.value = formatJson(exported);
+        };
+        createCopy.onclick = () => {
+            createJsonResult.select();
+            document.execCommand('copy');
+            updateFeedback("JSONをコピーしました");
+        };
+
+        function formatJson(obj) {
+            return JSON.stringify(obj, null, 4)
+                   .replace(/\{\s+"x":\s*(-?\d+),\s+"y":\s*(-?\d+)\s+\}/g, '{"x": $1, "y": $2}');
         }
 
-        function init(id = 0) {
+        function copyFormattedJson(obj) {
+            const el = document.createElement('textarea');
+            el.value = formatJson(obj);
+            document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
+        }
+
+        function init(id = 0, overrideVertices = null) {
             messageEl.classList.remove('show');
             updateFeedback("パズルをあわせてみよう");
-            if (id >= problems.length) id = 0;
-            const p = problems[id];
-            const targetJa = (p.target_shape_name === 'Triangle') ? 'さんかく' : 'しかく';
-            targetDisplayEl.textContent = `もくひょう： ${targetJa}`;
+            if (problems.length === 0) return;
+            const p = problems[id] || problems[0];
+            targetDisplayEl.textContent = `もくひょう： ${(p.target_shape_name === 'Triangle') ? 'さんかく' : 'しかく'}`;
+            
+            const baseVertices = overrideVertices ? overrideVertices : p.initial_vertices.map(v=>({...v}));
             gameState = {
-                problemId: id, phase: 'cut', targetShape: p.target_shape_name, targetVertexCount: p.target_vertex_count,
-                polygons: [{ vertices: p.initial_vertices.map(v=>({...v})), color: `hsla(${Math.random()*360},70%,60%,0.8)` }],
-                selectedVertices: [], hoveredVertex: null, draggedPolygon: null, dragOffset: {x:0,y:0}
+                ...gameState,
+                problemId: problems.indexOf(p), 
+                phase: overrideVertices ? 'cut' : (gameState.isEditingCurrent ? 'edit' : 'cut'),
+                targetShape: p.target_shape_name, targetVertexCount: p.target_vertex_count,
+                polygons: [{ vertices: baseVertices.map(v=>({...v})), color: `hsla(${Math.random()*360},70%,60%,0.8)` }],
+                selectedVertices: [], draggedVertexIdx: -1, draggedPolygon: null
             };
             setupProblemSelect();
-            problemSelectEl.value = id;
+            problemSelectEl.value = gameState.problemId;
             resizeCanvas();
             requestAnimationFrame(gameLoop);
         }
 
         function resizeCanvas() {
-            canvas.width = Math.min(gameContainerEl.clientWidth, 600);
-            canvas.height = canvas.width * 0.75;
-            messageEl.style.width = canvas.width + 'px'; messageEl.style.height = canvas.height + 'px';
+            const area = document.getElementById('game-area');
+            canvas.width = Math.min(area.clientWidth - 20, 560);
+            canvas.height = canvas.width * 0.8;
         }
 
         function gameLoop() { draw(); if (gameState.phase !== 'cleared') requestAnimationFrame(gameLoop); }
@@ -345,46 +313,76 @@
             ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
             for(let i=0;i<=canvas.width;i+=GRID_SIZE){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,canvas.height);ctx.stroke();}
             for(let i=0;i<=canvas.height;i+=GRID_SIZE){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(canvas.width,i);ctx.stroke();}
-            gameState.polygons.forEach(p => {
-                ctx.fillStyle = p.color; ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.beginPath();
-                ctx.moveTo(p.vertices[0].x*GRID_SIZE, p.vertices[0].y*GRID_SIZE);
-                p.vertices.forEach(v => ctx.lineTo(v.x*GRID_SIZE, v.y*GRID_SIZE));
-                ctx.closePath(); ctx.fill(); ctx.stroke();
-            });
-            if (gameState.phase === 'cut') {
-                gameState.polygons[0].vertices.forEach(v => {
-                    ctx.fillStyle = 'rgba(59,130,246,0.4)'; ctx.beginPath(); ctx.arc(v.x*GRID_SIZE, v.y*GRID_SIZE, VERTEX_RADIUS, 0, 7); ctx.fill();
+            
+            if (currentMode === 'play') {
+                gameState.polygons.forEach(p => {
+                    ctx.fillStyle = p.color; ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.beginPath();
+                    ctx.moveTo(p.vertices[0].x*GRID_SIZE, p.vertices[0].y*GRID_SIZE);
+                    p.vertices.forEach(v => ctx.lineTo(v.x*GRID_SIZE, v.y*GRID_SIZE));
+                    ctx.closePath(); ctx.fill(); ctx.stroke();
                 });
-                gameState.selectedVertices.forEach(v => {
-                    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(v.vertex.x*GRID_SIZE, v.vertex.y*GRID_SIZE, VERTEX_RADIUS, 0, 7); ctx.fill();
-                });
+                if (gameState.phase === 'cut' || gameState.phase === 'edit') {
+                    gameState.polygons[0].vertices.forEach((v, i) => {
+                        const isSelected = gameState.selectedVertices.some(sv => sv.idx === i);
+                        ctx.fillStyle = isSelected ? '#ef4444' : (gameState.phase === 'edit' ? '#ef4444' : 'rgba(59,130,246,0.4)');
+                        ctx.beginPath(); ctx.arc(v.x*GRID_SIZE, v.y*GRID_SIZE, VERTEX_RADIUS, 0, 7); ctx.fill();
+                        if (gameState.phase === 'edit') { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke(); }
+                    });
+                }
+            } else {
+                if (createVertices.length > 0) {
+                    ctx.fillStyle = 'rgba(129, 140, 248, 0.4)'; ctx.beginPath();
+                    ctx.moveTo(createVertices[0].x*GRID_SIZE, createVertices[0].y*GRID_SIZE);
+                    createVertices.forEach(v => ctx.lineTo(v.x*GRID_SIZE, v.y*GRID_SIZE));
+                    if (createVertices.length > 2) ctx.closePath();
+                    ctx.fill(); ctx.strokeStyle = '#312e81'; ctx.lineWidth = 2; ctx.stroke();
+                    createVertices.forEach(v => {
+                        ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(v.x*GRID_SIZE, v.y*GRID_SIZE, 6, 0, 7); ctx.fill();
+                        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+                    });
+                }
             }
         }
 
-        function getMousePos(e) {
-            const r = canvas.getBoundingClientRect();
-            const cx = e.clientX ?? e.changedTouches?.[0]?.clientX;
-            const cy = e.clientY ?? e.changedTouches?.[0]?.clientY;
-            return { x: cx - r.left, y: cy - r.top };
-        }
-
+        canvas.oncontextmenu = (e) => e.preventDefault();
         canvas.onmousedown = canvas.ontouchstart = (e) => {
-            if (e.type==='touchstart') e.preventDefault();
-            if (gameState.phase==='cleared') return;
             const m = getMousePos(e);
+            const isRight = (e.button === 2 || e.ctrlKey);
+            
+            if (currentMode === 'create') {
+                const vIdx = createVertices.findIndex(v => Math.hypot(v.x*GRID_SIZE-m.x, v.y*GRID_SIZE-m.y) < CLICK_RADIUS);
+                if (vIdx !== -1) {
+                    if (isRight) createVertices.splice(vIdx, 1);
+                    else gameState.draggedVertexIdx = vIdx;
+                } else if (!isRight) {
+                    createVertices.push({ x: Math.round(m.x/GRID_SIZE), y: Math.round(m.y/GRID_SIZE) });
+                }
+                draw(); return;
+            }
+
+            if (gameState.phase==='cleared') return;
             if (gameState.phase==='cut') {
                 const vIdx = gameState.polygons[0].vertices.findIndex(v => Math.hypot(v.x*GRID_SIZE-m.x, v.y*GRID_SIZE-m.y) < CLICK_RADIUS);
                 if (vIdx !== -1) {
-                    const v = gameState.polygons[0].vertices[vIdx];
                     if (!gameState.selectedVertices.some(sv=>sv.idx===vIdx)) {
-                        gameState.selectedVertices.push({idx:vIdx, vertex:v});
+                        gameState.selectedVertices.push({idx:vIdx, vertex:gameState.polygons[0].vertices[vIdx]});
                         if (gameState.selectedVertices.length===2) {
                             if (isValidCut(gameState.selectedVertices[0], gameState.selectedVertices[1])) splitPolygon();
                             else { updateFeedback("そこでは切れません", true); gameState.selectedVertices = []; }
                         }
                     }
                 }
-            } else {
+            } else if (gameState.phase==='edit') {
+                const vIdx = gameState.polygons[0].vertices.findIndex(v => Math.hypot(v.x*GRID_SIZE-m.x, v.y*GRID_SIZE-m.y) < CLICK_RADIUS);
+                if (vIdx !== -1) {
+                    if (isRight) {
+                        gameState.polygons[0].vertices.splice(vIdx, 1);
+                        if (gameState.polygons[0].vertices.length < 1) gameState.polygons[0].vertices = [{x:5,y:5}];
+                    } else gameState.draggedVertexIdx = vIdx;
+                } else if (!isRight) {
+                    gameState.polygons[0].vertices.push({ x: Math.round(m.x/GRID_SIZE), y: Math.round(m.y/GRID_SIZE) });
+                }
+            } else if (gameState.phase === 'combine') {
                 const p = gameState.polygons.find(poly => {
                     ctx.beginPath(); ctx.moveTo(poly.vertices[0].x*GRID_SIZE, poly.vertices[0].y*GRID_SIZE);
                     poly.vertices.forEach(v => ctx.lineTo(v.x*GRID_SIZE, v.y*GRID_SIZE));
@@ -395,20 +393,32 @@
         };
 
         canvas.onmousemove = canvas.ontouchmove = (e) => {
-            if (gameState.draggedPolygon) {
-                const m = getMousePos(e);
+            const m = getMousePos(e);
+            if (currentMode === 'create' && gameState.draggedVertexIdx !== -1) {
+                createVertices[gameState.draggedVertexIdx] = { x: Math.round(m.x/GRID_SIZE), y: Math.round(m.y/GRID_SIZE) };
+            } else if (gameState.draggedPolygon) {
                 const dx = (m.x-gameState.dragOffset.x)/GRID_SIZE, dy = (m.y-gameState.dragOffset.y)/GRID_SIZE;
                 gameState.draggedPolygon.vertices = gameState.draggedPolygon.origVertices.map(v=>({x:v.x+dx, y:v.y+dy}));
+            } else if (gameState.draggedVertexIdx !== -1) {
+                gameState.polygons[0].vertices[gameState.draggedVertexIdx] = { x: Math.round(m.x/GRID_SIZE), y: Math.round(m.y/GRID_SIZE) };
             }
         };
 
-        canvas.onmouseup = canvas.ontouchend = (e) => {
+        canvas.onmouseup = canvas.ontouchend = () => {
             if (gameState.draggedPolygon) {
                 gameState.draggedPolygon.vertices.forEach(v => { v.x = Math.round(v.x); v.y = Math.round(v.y); });
                 gameState.draggedPolygon = null;
                 checkWinCondition();
             }
+            gameState.draggedVertexIdx = -1;
         };
+
+        function getMousePos(e) {
+            const r = canvas.getBoundingClientRect();
+            const cx = (e.clientX !== undefined) ? e.clientX : (e.touches ? e.touches[0].clientX : (e.changedTouches ? e.changedTouches[0].clientX : 0));
+            const cy = (e.clientY !== undefined) ? e.clientY : (e.touches ? e.touches[0].clientY : (e.changedTouches ? e.changedTouches[0].clientY : 0));
+            return { x: cx - r.left, y: cy - r.top };
+        }
 
         function isValidCut(v1, v2) {
             const p = gameState.polygons[0].vertices;
@@ -428,90 +438,103 @@
             updateFeedback("図形をあわせてみよう");
         }
 
-        function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
-        function getUnitEdges(vertices) {
-            const set = new Set();
-            for (let i = 0; i < vertices.length; i++) {
-                const a = vertices[i], b = vertices[(i + 1) % vertices.length];
-                const dx = Math.round(b.x - a.x), dy = Math.round(b.y - a.y);
-                const common = gcd(Math.abs(dx), Math.abs(dy));
-                const ux = dx / common, uy = dy / common;
-                for (let j = 0; j < common; j++) {
-                    const x1 = Math.round(a.x + j * ux), y1 = Math.round(a.y + j * uy);
-                    const x2 = Math.round(a.x + (j + 1) * ux), y2 = Math.round(a.y + (j + 1) * uy);
-                    set.add(`${x1},${y1},${x2},${y2}`);
-                }
-            }
-            return set;
-        }
-        function getReversedEdges(set) {
-            const r = new Set();
-            for (const e of set) { const [x1, y1, x2, y2] = e.split(','); r.add(`${x2},${y2},${x1},${y1}`); }
-            return r;
-        }
-        function setIntersection(a, b) { const r = new Set(); for (const e of b) if (a.has(e)) r.add(e); return r; }
-
-        function checkOverlap(p1, p2) {
-            const isInsideStrictly = (p, vs) => {
-                let inside = false;
-                for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-                    const xi = vs[i].x, yi = vs[i].y, xj = vs[j].x, yj = vs[j].y;
-                    const intersect = ((yi > p.y) !== (yj > p.y)) && (p.x < (xj - xi) * (p.y - yi) / (yj - yi + 0.000001) + xi);
-                    if (intersect) inside = !inside;
-                }
-                if (!inside) return false;
-                for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-                    const a = vs[i], b = vs[j];
-                    const cross = (p.y - a.y) * (b.x - a.x) - (p.x - a.x) * (b.y - a.y);
-                    if (Math.abs(cross) < 0.001) {
-                        const dot = (p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y);
-                        const sq = (b.x - a.x)**2 + (b.y - a.y)**2;
-                        if (dot >= 0 && dot <= sq) return false;
-                    }
-                }
-                return true;
-            };
-            const e1 = getUnitEdges(p1.vertices);
-            for (const e of e1) {
-                const [x1, y1, x2, y2] = e.split(',').map(Number);
-                if (isInsideStrictly({x:(x1+x2)/2, y:(y1+y2)/2}, p2.vertices)) return true;
-            }
-            return false;
-        }
-
         function checkWinCondition() {
             if (gameState.polygons.length !== 2) return;
             const [p1, p2] = gameState.polygons;
-            if (checkOverlap(p1, p2) || checkOverlap(p2, p1)) { updateFeedback("図形が重なっています", true); return; }
+            if (checkOverlap(p1, p2)) { updateFeedback("図形が重なっています", true); return; }
             const e1 = getUnitEdges(p1.vertices), e2 = getUnitEdges(p2.vertices);
             const shared = setIntersection(e1, getReversedEdges(e2));
             if (shared.size === 0) { updateFeedback("図形がはなれています"); return; }
             const count = countCombinedVertices(e1, e2, shared);
-            if (count === -1) { updateFeedback("図形が複雑すぎます", true); }
-            else if (count === gameState.targetVertexCount) { showClearMessage(); }
-            else { updateFeedback(`形がちがいます（カドの数: ${count}個）`, true); }
+            if (count === -1) updateFeedback("図形が複雑すぎます", true);
+            else if (count === gameState.targetVertexCount) showClearMessage();
+            else updateFeedback(`形がちがいます（カドの数: ${count}個）`, true);
+        }
+
+        function gcd(a, b) {
+            a = Math.abs(a); b = Math.abs(b);
+            while (b) { a %= b; [a, b] = [b, a]; }
+            return a;
+        }
+
+        function getUnitEdges(v) {
+            const s = new Set();
+            for (let i=0; i<v.length; i++) {
+                const a = v[i], b = v[(i+1)%v.length];
+                const dx = Math.round(b.x - a.x), dy = Math.round(b.y - a.y);
+                // 最大公約数(GCD)を使用して、格子点を通る単位で分割する
+                const segments = gcd(dx, dy);
+                const stepX = dx / segments;
+                const stepY = dy / segments;
+                for (let j=0; j<segments; j++) {
+                    const x1 = Math.round(a.x + j * stepX);
+                    const y1 = Math.round(a.y + j * stepY);
+                    const x2 = Math.round(a.x + (j + 1) * stepX);
+                    const y2 = Math.round(a.y + (j + 1) * stepY);
+                    s.add(`${x1},${y1},${x2},${y2}`);
+                }
+            }
+            return s;
+        }
+        function getReversedEdges(s) { const r = new Set(); for (const e of s) { const [x1, y1, x2, y2] = e.split(','); r.add(`${x2},${y2},${x1},${y1}`); } return r; }
+        function setIntersection(a, b) { const r = new Set(); for (const e of b) if (a.has(e)) r.add(e); return r; }
+
+        function checkOverlap(p1, p2) {
+            const getBounds = (vs) => ({
+                minX: Math.min(...vs.map(v => v.x)),
+                maxX: Math.max(...vs.map(v => v.x)),
+                minY: Math.min(...vs.map(v => v.y)),
+                maxY: Math.max(...vs.map(v => v.y))
+            });
+            const b1 = getBounds(p1.vertices), b2 = getBounds(p2.vertices);
+            const inter = {
+                minX: Math.max(b1.minX, b2.minX),
+                maxX: Math.min(b1.maxX, b2.maxX),
+                minY: Math.max(b1.minY, b2.minY),
+                maxY: Math.min(b1.maxY, b2.maxY)
+            };
+            if (inter.minX >= inter.maxX || inter.minY >= inter.maxY) return false;
+
+            const isPointInside = (p, vs) => {
+                let inside = false;
+                for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+                    const xi = vs[i].x, yi = vs[i].y, xj = vs[j].x, yj = vs[j].y;
+                    if (((yi > p.y) !== (yj > p.y)) && (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi)) inside = !inside;
+                }
+                return inside;
+            };
+
+            for (let x = Math.floor(inter.minX); x < Math.ceil(inter.maxX); x++) {
+                for (let y = Math.floor(inter.minY); y < Math.ceil(inter.maxY); y++) {
+                    const testPoint = { x: x + 0.5, y: y + 0.5 };
+                    if (isPointInside(testPoint, p1.vertices) && isPointInside(testPoint, p2.vertices)) return true;
+                }
+            }
+            return false;
         }
 
         function countCombinedVertices(e1, e2, shared) {
-            const revShared = getReversedEdges(shared);
             const all = new Set([...e1, ...e2]);
+            const revShared = getReversedEdges(shared);
             for (const s of shared) all.delete(s);
             for (const s of revShared) all.delete(s);
             if (all.size === 0) return 0;
             const map = new Map();
             for (const e of all) { const [x1, y1, x2, y2] = e.split(',').map(Number); map.set(`${x1},${y1}`, `${x2},${y2}`); }
-            const start = all.values().next().value.split(',').slice(0, 2).join(',');
+            const startEntry = all.values().next().value.split(',');
+            const start = `${startEntry[0]},${startEntry[1]}`;
             let curr = start, path = [], safe = 0;
             while (true) {
                 const [x, y] = curr.split(',').map(Number); path.push({x, y});
                 curr = map.get(curr);
                 if (!curr || curr === start) break;
-                if (safe++ > all.size) return -1; 
+                if (safe++ > all.size + 20) return -1;
             }
             if (path.length !== all.size) return -1;
             const corners = [];
             for (let i = 0; i < path.length; i++) {
                 const p1 = path[(i + path.length - 1) % path.length], p2 = path[i], p3 = path[(i + 1) % path.length];
+                // ベクトルの外積を利用して、直線上の点（カドではない点）を除外する
                 if (Math.abs((p2.x - p1.x) * (p3.y - p2.y) - (p2.y - p1.y) * (p3.x - p2.x)) > 0.01) corners.push(p2);
             }
             return corners.length;
@@ -524,38 +547,86 @@
 
         function showClearMessage() {
             problems[gameState.problemId].isCleared = true;
-            setupProblemSelect();
-            updateFeedback("正解です！クリア！", false);
-            messageTextEl.innerHTML = 'クリア！ 🎊';
-            messageEl.classList.add('show');
-            gameState.phase = 'cleared';
+            setupProblemSelect(); updateFeedback("正解です！クリア！");
+            messageEl.classList.add('show'); gameState.phase = 'cleared';
         }
 
         function setupProblemSelect() {
             problemSelectEl.innerHTML = '';
             problems.forEach((p, i) => {
-                const opt = document.createElement('option');
-                opt.value = i; opt.textContent = p.name + (p.isCleared ? ' ★' : '');
+                const opt = document.createElement('option'); opt.value = i;
+                opt.textContent = p.name + (p.isCleared ? ' ★' : '');
                 problemSelectEl.appendChild(opt);
             });
             problemSelectEl.onchange = (e) => init(parseInt(e.target.value));
         }
 
-        nextButton.onclick = () => init((gameState.problemId + 1) % problems.length);
-        resetButton.onclick = () => init(gameState.problemId);
-        window.onresize = resizeCanvas;
-
-        // 起動時処理
-        window.onload = () => {
-            loadProblemsData();
-            init();
+        const editorOverlay = document.getElementById('editor-overlay');
+        editOrderButton.onclick = () => {
+            renderEditorList(); 
+            editorOverlay.classList.remove('hidden');
+            if (sortableInstance) sortableInstance.destroy();
+            sortableInstance = new Sortable(document.getElementById('sortable-list'), { animation: 150, ghostClass: 'sortable-ghost' });
         };
+        document.getElementById('cancelEditButton').onclick = () => editorOverlay.classList.add('hidden');
+        document.getElementById('saveEditButton').onclick = () => {
+            const newOrderIndices = Array.from(document.getElementById('sortable-list').children).map(el => parseInt(el.dataset.index));
+            const currentProblem = problems[gameState.problemId];
+            problems = newOrderIndices.map(index => problems[index]);
+            gameState.problemId = problems.indexOf(currentProblem);
+            setupProblemSelect(); init(gameState.problemId); editorOverlay.classList.add('hidden');
+        };
+
+        function renderEditorList() {
+            const list = document.getElementById('sortable-list'); list.innerHTML = '';
+            problems.forEach((p, i) => {
+                const card = document.createElement('div');
+                card.className = 'problem-card bg-white p-2 rounded-lg shadow border border-slate-200 flex flex-col items-center justify-between h-44 relative';
+                card.dataset.index = i;
+                const tc = document.createElement('canvas'); tc.width = 120; tc.height = 120;
+                drawThumbnail(tc, p.initial_vertices, p.target_shape_name);
+                card.innerHTML = `<div class="text-[10px] font-bold text-slate-700 w-full truncate text-center">${p.name}</div>${p.isCleared ? '<span class="absolute top-1 right-1 text-yellow-500">★</span>' : ''}`;
+                card.insertBefore(tc, card.firstChild); list.appendChild(card);
+            });
+        }
+
+        document.getElementById('downloadImagesButton').onclick = async () => {
+            const zip = new JSZip();
+            const promises = problems.map((p, i) => new Promise(r => {
+                const c = document.createElement('canvas'); c.width = 400; c.height = 450;
+                drawThumbnail(c, p.initial_vertices, p.target_shape_name, true, p.name);
+                c.toBlob(b => { zip.file(`${i+1}_${p.name}.png`, b); r(); });
+            }));
+            await Promise.all(promises); saveAs(await zip.generateAsync({type: "blob"}), "puzzles.zip");
+        };
+
+        function drawThumbnail(canvas, vertices, targetShape, isDownload = false, title = "") {
+            const ctx = canvas.getContext('2d');
+            if (isDownload) { ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width,canvas.height); }
+            else ctx.clearRect(0,0,canvas.width,canvas.height);
+            if (!vertices || !vertices.length) return;
+            let minX = Math.min(...vertices.map(v=>v.x)), maxX = Math.max(...vertices.map(v=>v.x));
+            let minY = Math.min(...vertices.map(v=>v.y)), maxY = Math.max(...vertices.map(v=>v.y));
+            const cH = isDownload ? canvas.height-50 : canvas.height, tM = isDownload ? 50 : 0;
+            const s = Math.min(canvas.width/(maxX-minX||1), cH/(maxY-minY||1)) * 0.7;
+            const ox = (canvas.width-(maxX-minX)*s)/2-minX*s, oy = (cH-(maxY-minY)*s)/2-minY*s+tM;
+            if (isDownload && title) { ctx.save(); ctx.fillStyle = "#334155"; ctx.font = "bold 20px sans-serif"; ctx.textAlign = "center"; ctx.fillText(title, canvas.width/2, 25); ctx.restore(); }
+            ctx.fillStyle = '#818cf8'; ctx.beginPath(); ctx.moveTo(vertices[0].x*s+ox, vertices[0].y*s+oy); vertices.forEach(v=>ctx.lineTo(v.x*s+ox,v.y*s+oy)); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = '#312e81'; ctx.lineWidth = isDownload?3:2; ctx.stroke();
+            vertices.forEach(v => { ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(v.x*s+ox, v.y*s+oy, isDownload?7.5:4.5, 0, 7); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = isDownload?2:1.5; ctx.stroke(); });
+            if (targetShape) {
+                const is = canvas.width*0.22, yO = isDownload?40:10; ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(10+is/2, yO+is/2, is/2+2, 0, 7); ctx.fill();
+                if (targetShape==='Triangle') { ctx.fillStyle='#6366f1'; ctx.beginPath(); ctx.moveTo(10+is/2, yO+4); ctx.lineTo(6+is, yO-4+is); ctx.lineTo(14, yO-4+is); ctx.fill(); }
+                else { ctx.fillStyle='#10b981'; ctx.fillRect(15, yO+5, is-10, is-10); }
+            }
+        }
+
+        resetButton.onclick = () => init(gameState.problemId);
+        nextButton.onclick = () => init((gameState.problemId + 1) % problems.length);
+        window.onresize = resizeCanvas;
+        window.onload = () => { loadProblemsData(); init(); };
     </script>
 
-    <!-- 
-      ▼▼▼ ここにJSONファイルの中身を丸ごと貼り付けてください ▼▼▼
-      <script id="questions-data" type="application/json"> ... </script> の中に貼り付けます。
-    -->
     <script id="questions-data" type="application/json">
         {
             "questions": [
@@ -1133,6 +1204,61 @@
                     ]
                 },
                 {
+                    "name": "srdissection2004",
+                    "original_name": "tachiawase_4_103",
+                    "sortingnum": 20,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 3, "y": 5},
+                        {"x": 9, "y": 5},
+                        {"x": 12, "y": 5},
+                        {"x": 11, "y": 7},
+                        {"x": 9, "y": 7},
+                        {"x": 9, "y": 10},
+                        {"x": 5, "y": 10},
+                        {"x": 6, "y": 8},
+                        {"x": 3, "y": 8}
+                    ]
+                },
+                {
+                    "name": "srdissection2005",
+                    "original_name": "tachiawase_4_104",
+                    "sortingnum": 20,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 5, "y": 3},
+                        {"x": 9, "y": 3},
+                        {"x": 9, "y": 5},
+                        {"x": 11, "y": 7},
+                        {"x": 11, "y": 9},
+                        {"x": 5, "y": 9},
+                        {"x": 3, "y": 7},
+                        {"x": 3, "y": 5},
+                        {"x": 5, "y": 5}
+                    ]
+                },
+                {
+                    "name": "srdissection2006",
+                    "original_name": "tachiawase_4_105",
+                    "sortingnum": 20,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 9, "y": 6},
+                        {"x": 11, "y": 5},
+                        {"x": 11, "y": 9},
+                        {"x": 7, "y": 9},
+                        {"x": 7, "y": 7},
+                        {"x": 5, "y": 8},
+                        {"x": 5, "y": 10},
+                        {"x": 3, "y": 10},
+                        {"x": 3, "y": 4},
+                        {"x": 9, "y": 4}
+                    ]
+                },
+                {
                     "name": "srdissection2501",
                     "original_name": "tachiawase_4_009",
                     "sortingnum": 25,
@@ -1202,6 +1328,37 @@
                     ]
                 },
                 {
+                    "name": "srdissection2505",
+                    "original_name": "tachiawase_4_106",
+                    "sortingnum": 25,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 5, "y": 3},
+                        {"x": 7, "y": 6},
+                        {"x": 11, "y": 6},
+                        {"x": 11, "y": 11},
+                        {"x": 7, "y": 11},
+                        {"x": 5, "y": 8},
+                        {"x": 5, "y": 6}
+                    ]
+                },
+                {
+                    "name": "srdissection2506",
+                    "original_name": "tachiawase_4_107",
+                    "sortingnum": 25,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 5, "y": 3},
+                        {"x": 9, "y": 3},
+                        {"x": 9, "y": 7},
+                        {"x": 13, "y": 10},
+                        {"x": 9, "y": 10},
+                        {"x": 5, "y": 7}
+                    ]
+                },
+                {
                     "name": "srdissection3001",
                     "original_name": "tachiawase_4_026",
                     "sortingnum": 30,
@@ -1256,6 +1413,25 @@
                     ]
                 },
                 {
+                    "name": "srdissection3004",
+                    "original_name": "tachiawase_4_108",
+                    "sortingnum": 30,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 3, "y": 5},
+                        {"x": 7, "y": 3},
+                        {"x": 8, "y": 6},
+                        {"x": 9, "y": 2},
+                        {"x": 11, "y": 1},
+                        {"x": 11, "y": 7},
+                        {"x": 7, "y": 9},
+                        {"x": 6, "y": 13},
+                        {"x": 5, "y": 10},
+                        {"x": 3, "y": 11}
+                    ]
+                },
+                {
                     "name": "srdissection3201",
                     "original_name": "tachiawase_4_031",
                     "sortingnum": 32,
@@ -1306,9 +1482,27 @@
                     ]
                 },
                 {
-                    "name": "srdissection3601",
+                    "name": "srdissection3204",
+                    "original_name": "tachiawase_4_109",
+                    "sortingnum": 32,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 13, "y": 8},
+                        {"x": 13, "y": 10},
+                        {"x": 11, "y": 9},
+                        {"x": 9, "y": 11},
+                        {"x": 5, "y": 9},
+                        {"x": 5, "y": 4},
+                        {"x": 7, "y": 2},
+                        {"x": 9, "y": 3},
+                        {"x": 9, "y": 6}
+                    ]
+                },
+                {
+                    "name": "srdissection3501",
                     "original_name": "tachiawase_4_014",
-                    "sortingnum": 36,
+                    "sortingnum": 35,
                     "target_shape_name": "Square",
                     "target_vertex_count": 4,
                     "initial_vertices": [
@@ -1321,9 +1515,9 @@
                     ]
                 },
                 {
-                    "name": "srdissection3602",
+                    "name": "srdissection3502",
                     "original_name": "tachiawase_4_015",
-                    "sortingnum": 36,
+                    "sortingnum": 35,
                     "target_shape_name": "Square",
                     "target_vertex_count": 4,
                     "initial_vertices": [
@@ -1337,9 +1531,9 @@
                     ]
                 },
                 {
-                    "name": "srdissection3603",
+                    "name": "srdissection3503",
                     "original_name": "tachiawase_4_016",
-                    "sortingnum": 36,
+                    "sortingnum": 35,
                     "target_shape_name": "Square",
                     "target_vertex_count": 4,
                     "initial_vertices": [
@@ -1354,9 +1548,9 @@
                     ]
                 },
                 {
-                    "name": "srdissection3604",
+                    "name": "srdissection3504",
                     "original_name": "tachiawase_4_017",
-                    "sortingnum": 36,
+                    "sortingnum": 35,
                     "target_shape_name": "Square",
                     "target_vertex_count": 4,
                     "initial_vertices": [
@@ -1371,9 +1565,9 @@
                     ]
                 },
                 {
-                    "name": "srdissection3605",
+                    "name": "srdissection3505",
                     "original_name": "tachiawase_4_018",
-                    "sortingnum": 36,
+                    "sortingnum": 35,
                     "target_shape_name": "Square",
                     "target_vertex_count": 4,
                     "initial_vertices": [
@@ -1388,9 +1582,9 @@
                     ]
                 },
                 {
-                    "name": "srdissection3606",
+                    "name": "srdissection3506",
                     "original_name": "tachiawase_4_019",
-                    "sortingnum": 36,
+                    "sortingnum": 35,
                     "target_shape_name": "Square",
                     "target_vertex_count": 4,
                     "initial_vertices": [
@@ -1405,30 +1599,28 @@
                     ]
                 },
                 {
-                    "name": "srdissection3607",
+                    "name": "srdissection3507",
                     "original_name": "tachiawase_4_044",
-                    "sortingnum": 36,
+                    "sortingnum": 35,
                     "target_shape_name": "Square",
                     "target_vertex_count": 4,
                     "initial_vertices": [
-                        {"x": 6, "y": 2},
-                        {"x": 10, "y": 4},
-                        {"x": 9, "y": 6},
-                        {"x": 8, "y": 8},
-                        {"x": 9, "y": 11},
-                        {"x": 7, "y": 10},
-                        {"x": 8, "y": 13},
-                        {"x": 4, "y": 11},
-                        {"x": 5, "y": 9},
-                        {"x": 6, "y": 7},
-                        {"x": 5, "y": 4},
-                        {"x": 7, "y": 5}
+                        {"x": 6, "y": 3},
+                        {"x": 10, "y": 5},
+                        {"x": 8, "y": 9},
+                        {"x": 9, "y": 12},
+                        {"x": 7, "y": 11},
+                        {"x": 8, "y": 14},
+                        {"x": 4, "y": 12},
+                        {"x": 6, "y": 8},
+                        {"x": 5, "y": 5},
+                        {"x": 7, "y": 6}
                     ]
                 },
                 {
-                    "name": "srdissection3608",
+                    "name": "srdissection3508",
                     "original_name": "tachiawase_4_066",
-                    "sortingnum": 36,
+                    "sortingnum": 35,
                     "target_shape_name": "Square",
                     "target_vertex_count": 4,
                     "initial_vertices": [
@@ -1449,9 +1641,9 @@
                     ]
                 },
                 {
-                    "name": "srdissection3609",
+                    "name": "srdissection3509",
                     "original_name": "tachiawase_4_072",
-                    "sortingnum": 36,
+                    "sortingnum": 35,
                     "target_shape_name": "Square",
                     "target_vertex_count": 4,
                     "initial_vertices": [
@@ -1464,6 +1656,65 @@
                         {"x": 13, "y": 6},
                         {"x": 10, "y": 4},
                         {"x": 7, "y": 4}
+                    ]
+                },
+                {
+                    "name": "srdissection3510",
+                    "original_name": "tachiawase_4_088",
+                    "sortingnum": 35,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 3, "y": 1},
+                        {"x": 1, "y": 2},
+                        {"x": 4, "y": 5},
+                        {"x": 5, "y": 6},
+                        {"x": 7, "y": 5},
+                        {"x": 8, "y": 6},
+                        {"x": 10, "y": 5},
+                        {"x": 12, "y": 7},
+                        {"x": 14, "y": 6},
+                        {"x": 12, "y": 4},
+                        {"x": 10, "y": 2},
+                        {"x": 8, "y": 3},
+                        {"x": 6, "y": 1},
+                        {"x": 4, "y": 2}
+                    ]
+                },
+                {
+                    "name": "srdissection3511",
+                    "original_name": "tachiawase_4_097",
+                    "sortingnum": 35,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 2, "y": 2},
+                        {"x": 6, "y": 2},
+                        {"x": 7, "y": 3},
+                        {"x": 5, "y": 5},
+                        {"x": 7, "y": 7},
+                        {"x": 3, "y": 7},
+                        {"x": 1, "y": 5},
+                        {"x": 3, "y": 3}
+                    ]
+                },
+                {
+                    "name": "srdissection3512",
+                    "original_name": "tachiawase_4_100",
+                    "sortingnum": 35,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 1, "y": 4},
+                        {"x": 4, "y": 1},
+                        {"x": 8, "y": 1},
+                        {"x": 5, "y": 4},
+                        {"x": 7, "y": 4},
+                        {"x": 7, "y": 6},
+                        {"x": 5, "y": 8},
+                        {"x": 1, "y": 8},
+                        {"x": 3, "y": 6},
+                        {"x": 3, "y": 4}
                     ]
                 },
                 {
@@ -1524,6 +1775,25 @@
                         {"x": 7, "y": 8},
                         {"x": 8, "y": 10},
                         {"x": 3, "y": 10}
+                    ]
+                },
+                {
+                    "name": "srdissection4004",
+                    "original_name": "tachiawase_3_050",
+                    "sortingnum": 40,
+                    "target_shape_name": "Triangle",
+                    "target_vertex_count": 3,
+                    "initial_vertices": [
+                        {"x": 5, "y": 2},
+                        {"x": 7, "y": 4},
+                        {"x": 7, "y": 5},
+                        {"x": 9, "y": 8},
+                        {"x": 9, "y": 6},
+                        {"x": 11, "y": 8},
+                        {"x": 5, "y": 11},
+                        {"x": 3, "y": 8},
+                        {"x": 3, "y": 7},
+                        {"x": 5, "y": 9}
                     ]
                 },
                 {
@@ -1651,6 +1921,46 @@
                     ]
                 },
                 {
+                    "name": "srdissection4308",
+                    "original_name": "tachiawase_3_044",
+                    "sortingnum": 43,
+                    "target_shape_name": "Triangle",
+                    "target_vertex_count": 3,
+                    "initial_vertices": [
+                        {"x": 1, "y": 1},
+                        {"x": 5, "y": 3},
+                        {"x": 7, "y": 4},
+                        {"x": 8, "y": 7},
+                        {"x": 12, "y": 8},
+                        {"x": 11, "y": 6},
+                        {"x": 17, "y": 9},
+                        {"x": 8, "y": 9},
+                        {"x": 7, "y": 7},
+                        {"x": 6, "y": 5},
+                        {"x": 2, "y": 4}
+                    ]
+                },
+                {
+                    "name": "srdissection4309",
+                    "original_name": "tachiawase_3_045",
+                    "sortingnum": 43,
+                    "target_shape_name": "Triangle",
+                    "target_vertex_count": 3,
+                    "initial_vertices": [
+                        {"x": 1, "y": 1},
+                        {"x": 5, "y": 3},
+                        {"x": 11, "y": 6},
+                        {"x": 17, "y": 9},
+                        {"x": 9, "y": 9},
+                        {"x": 10, "y": 7},
+                        {"x": 6, "y": 5},
+                        {"x": 8, "y": 9},
+                        {"x": 2, "y": 9},
+                        {"x": 4, "y": 5},
+                        {"x": 3, "y": 5}
+                    ]
+                },
+                {
                     "name": "srdissection5001",
                     "original_name": "tachiawase_4_021",
                     "sortingnum": 50,
@@ -1743,6 +2053,58 @@
                     ]
                 },
                 {
+                    "name": "srdissection5006",
+                    "original_name": "tachiawase_4_110",
+                    "sortingnum": 50,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 9, "y": 3},
+                        {"x": 12, "y": 3},
+                        {"x": 8, "y": 9},
+                        {"x": 12, "y": 9},
+                        {"x": 7, "y": 11},
+                        {"x": 6, "y": 9},
+                        {"x": 4, "y": 5}
+                    ]
+                },
+                {
+                    "name": "srdissection5007",
+                    "original_name": "tachiawase_4_111",
+                    "sortingnum": 50,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 7, "y": 5},
+                        {"x": 10, "y": 6},
+                        {"x": 14, "y": 10},
+                        {"x": 12, "y": 12},
+                        {"x": 9, "y": 9},
+                        {"x": 10, "y": 11},
+                        {"x": 5, "y": 6},
+                        {"x": 8, "y": 7}
+                    ]
+                },
+                {
+                    "name": "srdissection5008",
+                    "original_name": "tachiawase_4_112",
+                    "sortingnum": 50,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 7, "y": 2},
+                        {"x": 13, "y": 2},
+                        {"x": 12, "y": 4},
+                        {"x": 9, "y": 4},
+                        {"x": 7, "y": 8},
+                        {"x": 5, "y": 6},
+                        {"x": 3, "y": 10},
+                        {"x": 1, "y": 8},
+                        {"x": 3, "y": 4},
+                        {"x": 6, "y": 4}
+                    ]
+                },
+                {
                     "name": "srdissection5501",
                     "original_name": "tachiawase_4_040",
                     "sortingnum": 55,
@@ -1809,7 +2171,6 @@
                         {"x": 3, "y": 3},
                         {"x": 2, "y": 6},
                         {"x": 1, "y": 9},
-                        {"x": 3, "y": 9},
                         {"x": 4, "y": 9},
                         {"x": 8, "y": 9},
                         {"x": 4, "y": 7},
@@ -1817,8 +2178,7 @@
                         {"x": 8, "y": 7},
                         {"x": 7, "y": 5},
                         {"x": 8, "y": 5},
-                        {"x": 7, "y": 3},
-                        {"x": 5, "y": 2}
+                        {"x": 7, "y": 3}
                     ]
                 },
                 {
@@ -1857,11 +2217,7 @@
                         {"x": 7, "y": 5},
                         {"x": 9, "y": 7},
                         {"x": 7, "y": 9},
-                        {"x": 11, "y": 9},
                         {"x": 13, "y": 9},
-                        {"x": 11, "y": 7},
-                        {"x": 9, "y": 5},
-                        {"x": 7, "y": 3},
                         {"x": 6, "y": 2},
                         {"x": 5, "y": 3}
                     ]
@@ -1970,6 +2326,74 @@
                         {"x": 4, "y": 12},
                         {"x": 6, "y": 10},
                         {"x": 6, "y": 8}
+                    ]
+                },
+                {
+                    "name": "srdissection5512",
+                    "original_name": "tachiawase_4_083",
+                    "sortingnum": 55,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 6, "y": 12},
+                        {"x": 8, "y": 13},
+                        {"x": 10, "y": 14},
+                        {"x": 14, "y": 11},
+                        {"x": 10, "y": 11},
+                        {"x": 7, "y": 10},
+                        {"x": 8, "y": 7},
+                        {"x": 12, "y": 9},
+                        {"x": 9, "y": 6},
+                        {"x": 7, "y": 4},
+                        {"x": 2, "y": 10},
+                        {"x": 1, "y": 13},
+                        {"x": 4, "y": 14},
+                        {"x": 8, "y": 14}
+                    ]
+                },
+                {
+                    "name": "srdissection5513",
+                    "original_name": "tachiawase_4_087",
+                    "sortingnum": 55,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 14, "y": 11},
+                        {"x": 10, "y": 2},
+                        {"x": 8, "y": 4},
+                        {"x": 9, "y": 6},
+                        {"x": 11, "y": 6},
+                        {"x": 11, "y": 9},
+                        {"x": 8, "y": 9},
+                        {"x": 7, "y": 7},
+                        {"x": 5, "y": 7},
+                        {"x": 5, "y": 11},
+                        {"x": 4, "y": 9},
+                        {"x": 1, "y": 12},
+                        {"x": 3, "y": 12},
+                        {"x": 4, "y": 14},
+                        {"x": 7, "y": 14},
+                        {"x": 7, "y": 11}
+                    ]
+                },
+                {
+                    "name": "srdissection5514",
+                    "original_name": "tachiawase_4_090",
+                    "sortingnum": 55,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 6, "y": 6},
+                        {"x": 3, "y": 10},
+                        {"x": 9, "y": 11},
+                        {"x": 7, "y": 13},
+                        {"x": 15, "y": 14},
+                        {"x": 13, "y": 10},
+                        {"x": 5, "y": 9},
+                        {"x": 7, "y": 7},
+                        {"x": 11, "y": 6},
+                        {"x": 10, "y": 4},
+                        {"x": 9, "y": 2}
                     ]
                 },
                 {
@@ -2108,6 +2532,96 @@
                         {"x": 7, "y": 8},
                         {"x": 6, "y": 13},
                         {"x": 2, "y": 9}
+                    ]
+                },
+                {
+                    "name": "srdissection6009",
+                    "original_name": "tachiawase_3_043",
+                    "sortingnum": 60,
+                    "target_shape_name": "Triangle",
+                    "target_vertex_count": 3,
+                    "initial_vertices": [
+                        {"x": 10, "y": 7},
+                        {"x": 10, "y": 9},
+                        {"x": 8, "y": 15},
+                        {"x": 6, "y": 13},
+                        {"x": 7, "y": 11},
+                        {"x": 3, "y": 7},
+                        {"x": 12, "y": 4},
+                        {"x": 11, "y": 7},
+                        {"x": 11, "y": 5},
+                        {"x": 9, "y": 7},
+                        {"x": 8, "y": 9}
+                    ]
+                },
+                {
+                    "name": "srdissection6010",
+                    "original_name": "tachiawase_3_046",
+                    "sortingnum": 60,
+                    "target_shape_name": "Triangle",
+                    "target_vertex_count": 3,
+                    "initial_vertices": [
+                        {"x": 1, "y": 6},
+                        {"x": 3, "y": 2},
+                        {"x": 5, "y": 4},
+                        {"x": 7, "y": 3},
+                        {"x": 8, "y": 1},
+                        {"x": 11, "y": 4},
+                        {"x": 9, "y": 5},
+                        {"x": 10, "y": 6},
+                        {"x": 6, "y": 6},
+                        {"x": 3, "y": 6}
+                    ]
+                },
+                {
+                    "name": "srdissection6011",
+                    "original_name": "tachiawase_3_047",
+                    "sortingnum": 60,
+                    "target_shape_name": "Triangle",
+                    "target_vertex_count": 3,
+                    "initial_vertices": [
+                        {"x": 3, "y": 2},
+                        {"x": 6, "y": 5},
+                        {"x": 7, "y": 3},
+                        {"x": 8, "y": 1},
+                        {"x": 11, "y": 4},
+                        {"x": 10, "y": 6},
+                        {"x": 7, "y": 6},
+                        {"x": 1, "y": 6}
+                    ]
+                },
+                {
+                    "name": "srdissection6012",
+                    "original_name": "tachiawase_3_048",
+                    "sortingnum": 60,
+                    "target_shape_name": "Triangle",
+                    "target_vertex_count": 3,
+                    "initial_vertices": [
+                        {"x": 2, "y": 2},
+                        {"x": 4, "y": 4},
+                        {"x": 7, "y": 4},
+                        {"x": 8, "y": 2},
+                        {"x": 12, "y": 6},
+                        {"x": 7, "y": 6},
+                        {"x": 3, "y": 6},
+                        {"x": 0, "y": 6}
+                    ]
+                },
+                {
+                    "name": "srdissection6013",
+                    "original_name": "tachiawase_3_049",
+                    "sortingnum": 60,
+                    "target_shape_name": "Triangle",
+                    "target_vertex_count": 3,
+                    "initial_vertices": [
+                        {"x": 1, "y": 5},
+                        {"x": 5, "y": 1},
+                        {"x": 7, "y": 3},
+                        {"x": 9, "y": 5},
+                        {"x": 13, "y": 9},
+                        {"x": 5, "y": 9},
+                        {"x": 7, "y": 7},
+                        {"x": 5, "y": 5}
                     ]
                 },
                 {
@@ -2292,6 +2806,93 @@
                         {"x": 9, "y": 2},
                         {"x": 7, "y": 3},
                         {"x": 5, "y": 4}
+                    ]
+                },
+                {
+                    "name": "srdissection7011",
+                    "original_name": "tachiawase_4_082",
+                    "sortingnum": 70,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 9, "y": 1},
+                        {"x": 6, "y": 3},
+                        {"x": 4, "y": 6},
+                        {"x": 6, "y": 4},
+                        {"x": 7, "y": 5},
+                        {"x": 5, "y": 8},
+                        {"x": 8, "y": 6},
+                        {"x": 11, "y": 13},
+                        {"x": 9, "y": 11},
+                        {"x": 6, "y": 10},
+                        {"x": 5, "y": 9},
+                        {"x": 3, "y": 11},
+                        {"x": 13, "y": 15},
+                        {"x": 10, "y": 6},
+                        {"x": 12, "y": 8}
+                    ]
+                },
+                {
+                    "name": "srdissection7012",
+                    "original_name": "tachiawase_4_084",
+                    "sortingnum": 70,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 13, "y": 16},
+                        {"x": 16, "y": 9},
+                        {"x": 7, "y": 6},
+                        {"x": 4, "y": 5},
+                        {"x": 2, "y": 4},
+                        {"x": 1, "y": 6},
+                        {"x": 1, "y": 7},
+                        {"x": 3, "y": 9},
+                        {"x": 7, "y": 10},
+                        {"x": 7, "y": 9},
+                        {"x": 8, "y": 7},
+                        {"x": 10, "y": 8},
+                        {"x": 13, "y": 9},
+                        {"x": 13, "y": 13},
+                        {"x": 9, "y": 12}
+                    ]
+                },
+                {
+                    "name": "srdissection7013",
+                    "original_name": "tachiawase_4_085",
+                    "sortingnum": 70,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 8, "y": 1},
+                        {"x": 10, "y": 5},
+                        {"x": 12, "y": 9},
+                        {"x": 9, "y": 10},
+                        {"x": 11, "y": 10},
+                        {"x": 11, "y": 12},
+                        {"x": 8, "y": 15},
+                        {"x": 6, "y": 11},
+                        {"x": 9, "y": 8},
+                        {"x": 9, "y": 6},
+                        {"x": 7, "y": 6},
+                        {"x": 4, "y": 7},
+                        {"x": 3, "y": 5}
+                    ]
+                },
+                {
+                    "name": "srdissection7014",
+                    "original_name": "tachiawase_4_101",
+                    "sortingnum": 70,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 4, "y": 12},
+                        {"x": 4, "y": 9},
+                        {"x": 7, "y": 9},
+                        {"x": 7, "y": 6},
+                        {"x": 10, "y": 6},
+                        {"x": 13, "y": 3},
+                        {"x": 10, "y": 9},
+                        {"x": 7, "y": 12}
                     ]
                 },
                 {
@@ -2536,6 +3137,51 @@
                     ]
                 },
                 {
+                    "name": "srdissection7512",
+                    "original_name": "tachiawase_3_038",
+                    "sortingnum": 75,
+                    "target_shape_name": "Triangle",
+                    "target_vertex_count": 3,
+                    "initial_vertices": [
+                        {"x": 3, "y": 1},
+                        {"x": 2, "y": 3},
+                        {"x": 1, "y": 5},
+                        {"x": 4, "y": 5},
+                        {"x": 7, "y": 5},
+                        {"x": 8, "y": 6},
+                        {"x": 7, "y": 6},
+                        {"x": 7, "y": 7},
+                        {"x": 9, "y": 7},
+                        {"x": 10, "y": 8},
+                        {"x": 13, "y": 8},
+                        {"x": 7, "y": 2},
+                        {"x": 6, "y": 4},
+                        {"x": 4, "y": 4},
+                        {"x": 4, "y": 3},
+                        {"x": 5, "y": 3}
+                    ]
+                },
+                {
+                    "name": "srdissection7513",
+                    "original_name": "tachiawase_3_040",
+                    "sortingnum": 75,
+                    "target_shape_name": "Triangle",
+                    "target_vertex_count": 3,
+                    "initial_vertices": [
+                        {"x": 6, "y": 6},
+                        {"x": 2, "y": 10},
+                        {"x": 14, "y": 16},
+                        {"x": 10, "y": 10},
+                        {"x": 8, "y": 12},
+                        {"x": 8, "y": 6},
+                        {"x": 9, "y": 6},
+                        {"x": 8, "y": 4},
+                        {"x": 12, "y": 10},
+                        {"x": 7, "y": 0},
+                        {"x": 6, "y": 0}
+                    ]
+                },
+                {
                     "name": "srdissection8001",
                     "original_name": "tachiawase_3_005",
                     "sortingnum": 80,
@@ -2694,6 +3340,43 @@
                     ]
                 },
                 {
+                    "name": "srdissection8009",
+                    "original_name": "tachiawase_3_041",
+                    "sortingnum": 80,
+                    "target_shape_name": "Triangle",
+                    "target_vertex_count": 3,
+                    "initial_vertices": [
+                        {"x": 4, "y": 8},
+                        {"x": 4, "y": 10},
+                        {"x": 10, "y": 10},
+                        {"x": 10, "y": 6},
+                        {"x": 8, "y": 8},
+                        {"x": 8, "y": 6},
+                        {"x": 6, "y": 8},
+                        {"x": 6, "y": 6}
+                    ]
+                },
+                {
+                    "name": "srdissection8010",
+                    "original_name": "tachiawase_3_042",
+                    "sortingnum": 80,
+                    "target_shape_name": "Triangle",
+                    "target_vertex_count": 3,
+                    "initial_vertices": [
+                        {"x": 1, "y": 2},
+                        {"x": 3, "y": 6},
+                        {"x": 6, "y": 6},
+                        {"x": 8, "y": 6},
+                        {"x": 12, "y": 6},
+                        {"x": 11, "y": 4},
+                        {"x": 9, "y": 3},
+                        {"x": 7, "y": 2},
+                        {"x": 8, "y": 4},
+                        {"x": 4, "y": 2},
+                        {"x": 5, "y": 4}
+                    ]
+                },
+                {
                     "name": "srdissection9001",
                     "original_name": "tachiawase_4_074",
                     "sortingnum": 90,
@@ -2732,102 +3415,9 @@
                     ]
                 },
                 {
-                    "name": "srdissection9901",
-                    "original_name": "tachiawase_4_082",
-                    "sortingnum": 99,
-                    "target_shape_name": "Square",
-                    "target_vertex_count": 4,
-                    "initial_vertices": [
-                        {"x": 9, "y": 1},
-                        {"x": 6, "y": 3},
-                        {"x": 4, "y": 6},
-                        {"x": 6, "y": 4},
-                        {"x": 7, "y": 5},
-                        {"x": 5, "y": 8},
-                        {"x": 8, "y": 6},
-                        {"x": 11, "y": 13},
-                        {"x": 9, "y": 11},
-                        {"x": 6, "y": 10},
-                        {"x": 5, "y": 9},
-                        {"x": 3, "y": 11},
-                        {"x": 13, "y": 15},
-                        {"x": 10, "y": 6},
-                        {"x": 12, "y": 8}
-                    ]
-                },
-                {
-                    "name": "srdissection9902",
-                    "original_name": "tachiawase_4_083",
-                    "sortingnum": 99,
-                    "target_shape_name": "Square",
-                    "target_vertex_count": 4,
-                    "initial_vertices": [
-                        {"x": 6, "y": 12},
-                        {"x": 8, "y": 13},
-                        {"x": 10, "y": 14},
-                        {"x": 14, "y": 11},
-                        {"x": 10, "y": 11},
-                        {"x": 7, "y": 10},
-                        {"x": 8, "y": 7},
-                        {"x": 12, "y": 9},
-                        {"x": 9, "y": 6},
-                        {"x": 7, "y": 4},
-                        {"x": 2, "y": 10},
-                        {"x": 1, "y": 13},
-                        {"x": 4, "y": 14},
-                        {"x": 8, "y": 14}
-                    ]
-                },
-                {
-                    "name": "srdissection9903",
-                    "original_name": "tachiawase_4_084",
-                    "sortingnum": 99,
-                    "target_shape_name": "Square",
-                    "target_vertex_count": 4,
-                    "initial_vertices": [
-                        {"x": 13, "y": 16},
-                        {"x": 16, "y": 9},
-                        {"x": 7, "y": 6},
-                        {"x": 4, "y": 5},
-                        {"x": 2, "y": 4},
-                        {"x": 1, "y": 6},
-                        {"x": 1, "y": 7},
-                        {"x": 3, "y": 9},
-                        {"x": 7, "y": 10},
-                        {"x": 7, "y": 9},
-                        {"x": 8, "y": 7},
-                        {"x": 10, "y": 8},
-                        {"x": 13, "y": 9},
-                        {"x": 13, "y": 13},
-                        {"x": 9, "y": 12}
-                    ]
-                },
-                {
-                    "name": "srdissection9904",
-                    "original_name": "tachiawase_4_085",
-                    "sortingnum": 99,
-                    "target_shape_name": "Square",
-                    "target_vertex_count": 4,
-                    "initial_vertices": [
-                        {"x": 8, "y": 1},
-                        {"x": 10, "y": 5},
-                        {"x": 12, "y": 9},
-                        {"x": 9, "y": 10},
-                        {"x": 11, "y": 10},
-                        {"x": 11, "y": 12},
-                        {"x": 8, "y": 15},
-                        {"x": 6, "y": 11},
-                        {"x": 9, "y": 8},
-                        {"x": 9, "y": 6},
-                        {"x": 7, "y": 6},
-                        {"x": 4, "y": 7},
-                        {"x": 3, "y": 5}
-                    ]
-                },
-                {
-                    "name": "srdissection9905",
+                    "name": "srdissection9003",
                     "original_name": "tachiawase_4_086",
-                    "sortingnum": 99,
+                    "sortingnum": 90,
                     "target_shape_name": "Square",
                     "target_vertex_count": 4,
                     "initial_vertices": [
@@ -2846,60 +3436,9 @@
                     ]
                 },
                 {
-                    "name": "srdissection9906",
-                    "original_name": "tachiawase_4_087",
-                    "sortingnum": 99,
-                    "target_shape_name": "Square",
-                    "target_vertex_count": 4,
-                    "initial_vertices": [
-                        {"x": 17, "y": 9},
-                        {"x": 13, "y": 5},
-                        {"x": 9, "y": 1},
-                        {"x": 7, "y": 3},
-                        {"x": 8, "y": 5},
-                        {"x": 11, "y": 4},
-                        {"x": 13, "y": 6},
-                        {"x": 7, "y": 8},
-                        {"x": 6, "y": 6},
-                        {"x": 3, "y": 7},
-                        {"x": 5, "y": 13},
-                        {"x": 4, "y": 11},
-                        {"x": 0, "y": 15},
-                        {"x": 3, "y": 14},
-                        {"x": 4, "y": 16},
-                        {"x": 10, "y": 14},
-                        {"x": 8, "y": 12}
-                    ]
-                },
-                {
-                    "name": "srdissection9907",
-                    "original_name": "tachiawase_4_088",
-                    "sortingnum": 99,
-                    "target_shape_name": "Square",
-                    "target_vertex_count": 4,
-                    "initial_vertices": [
-                        {"x": 3, "y": 1},
-                        {"x": 1, "y": 2},
-                        {"x": 3, "y": 4},
-                        {"x": 4, "y": 5},
-                        {"x": 5, "y": 6},
-                        {"x": 7, "y": 5},
-                        {"x": 8, "y": 6},
-                        {"x": 10, "y": 5},
-                        {"x": 12, "y": 7},
-                        {"x": 14, "y": 6},
-                        {"x": 12, "y": 4},
-                        {"x": 10, "y": 2},
-                        {"x": 8, "y": 3},
-                        {"x": 7, "y": 2},
-                        {"x": 6, "y": 1},
-                        {"x": 4, "y": 2}
-                    ]
-                },
-                {
-                    "name": "srdissection9908",
+                    "name": "srdissection9004",
                     "original_name": "tachiawase_4_089",
-                    "sortingnum": 99,
+                    "sortingnum": 90,
                     "target_shape_name": "Square",
                     "target_vertex_count": 4,
                     "initial_vertices": [
@@ -2922,29 +3461,9 @@
                     ]
                 },
                 {
-                    "name": "srdissection9909",
-                    "original_name": "tachiawase_4_090",
-                    "sortingnum": 99,
-                    "target_shape_name": "Square",
-                    "target_vertex_count": 4,
-                    "initial_vertices": [
-                        {"x": 6, "y": 6},
-                        {"x": 3, "y": 10},
-                        {"x": 9, "y": 11},
-                        {"x": 7, "y": 13},
-                        {"x": 15, "y": 14},
-                        {"x": 13, "y": 10},
-                        {"x": 5, "y": 9},
-                        {"x": 7, "y": 7},
-                        {"x": 11, "y": 6},
-                        {"x": 10, "y": 4},
-                        {"x": 9, "y": 2}
-                    ]
-                },
-                {
-                    "name": "srdissection9910",
+                    "name": "srdissection9005",
                     "original_name": "tachiawase_4_091",
-                    "sortingnum": 99,
+                    "sortingnum": 90,
                     "target_shape_name": "Square",
                     "target_vertex_count": 4,
                     "initial_vertices": [
@@ -2956,111 +3475,115 @@
                     ]
                 },
                 {
-                    "name": "srdissection9911",
-                    "original_name": "tachiawase_3_038",
-                    "sortingnum": 99,
-                    "target_shape_name": "Triangle",
-                    "target_vertex_count": 3,
+                    "name": "srdissection9006",
+                    "original_name": "tachiawase_4_092",
+                    "sortingnum": 90,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
                     "initial_vertices": [
-                        {"x": 3, "y": 1},
-                        {"x": 2, "y": 3},
-                        {"x": 1, "y": 5},
                         {"x": 4, "y": 5},
+                        {"x": 4, "y": 7},
+                        {"x": 4, "y": 11},
+                        {"x": 6, "y": 11},
+                        {"x": 8, "y": 11},
+                        {"x": 12, "y": 11},
+                        {"x": 12, "y": 9},
+                        {"x": 12, "y": 5},
+                        {"x": 10, "y": 7},
+                        {"x": 8, "y": 9},
+                        {"x": 6, "y": 7}
+                    ]
+                },
+                {
+                    "name": "srdissection9007",
+                    "original_name": "tachiawase_4_094",
+                    "sortingnum": 90,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 12, "y": 9},
+                        {"x": 11, "y": 7},
+                        {"x": 10, "y": 5},
                         {"x": 7, "y": 5},
+                        {"x": 7, "y": 7},
+                        {"x": 5, "y": 7},
+                        {"x": 5, "y": 10},
+                        {"x": 7, "y": 9},
+                        {"x": 7, "y": 11},
+                        {"x": 9, "y": 11},
+                        {"x": 9, "y": 9}
+                    ]
+                },
+                {
+                    "name": "srdissection9008",
+                    "original_name": "tachiawase_4_095",
+                    "sortingnum": 90,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 1, "y": 6},
+                        {"x": 1, "y": 9},
+                        {"x": 1, "y": 12},
+                        {"x": 5, "y": 13},
+                        {"x": 9, "y": 14},
+                        {"x": 9, "y": 11},
+                        {"x": 9, "y": 8},
+                        {"x": 7, "y": 6},
+                        {"x": 4, "y": 6}
+                    ]
+                },
+                {
+                    "name": "srdissection9009",
+                    "original_name": "tachiawase_4_096",
+                    "sortingnum": 90,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 1, "y": 3},
+                        {"x": 3, "y": 1},
+                        {"x": 5, "y": 1},
+                        {"x": 7, "y": 1},
+                        {"x": 9, "y": 3},
+                        {"x": 11, "y": 5},
+                        {"x": 3, "y": 5},
+                        {"x": 5, "y": 3},
+                        {"x": 3, "y": 3}
+                    ]
+                },
+                {
+                    "name": "srdissection9010",
+                    "original_name": "tachiawase_4_102",
+                    "sortingnum": 90,
+                    "target_shape_name": "Square",
+                    "target_vertex_count": 4,
+                    "initial_vertices": [
+                        {"x": 7, "y": 14},
+                        {"x": 10, "y": 8},
+                        {"x": 10, "y": 7},
+                        {"x": 9, "y": 7},
+                        {"x": 9, "y": 8},
+                        {"x": 8, "y": 10},
+                        {"x": 8, "y": 9},
+                        {"x": 8, "y": 8},
+                        {"x": 8, "y": 7},
                         {"x": 8, "y": 6},
+                        {"x": 8, "y": 5},
+                        {"x": 9, "y": 5},
+                        {"x": 9, "y": 6},
+                        {"x": 10, "y": 4},
+                        {"x": 7, "y": 4},
+                        {"x": 7, "y": 5},
                         {"x": 7, "y": 6},
                         {"x": 7, "y": 7},
-                        {"x": 9, "y": 7},
-                        {"x": 10, "y": 8},
-                        {"x": 13, "y": 8},
-                        {"x": 7, "y": 2},
-                        {"x": 6, "y": 4},
-                        {"x": 4, "y": 4},
-                        {"x": 4, "y": 3},
-                        {"x": 5, "y": 3}
-                    ]
-                },
-                {
-                    "name": "srdissection9912",
-                    "original_name": "tachiawase_3_040",
-                    "sortingnum": 99,
-                    "target_shape_name": "Triangle",
-                    "target_vertex_count": 3,
-                    "initial_vertices": [
-                        {"x": 6, "y": 6},
-                        {"x": 2, "y": 10},
-                        {"x": 14, "y": 16},
-                        {"x": 10, "y": 10},
-                        {"x": 8, "y": 12},
-                        {"x": 8, "y": 6},
-                        {"x": 9, "y": 6},
-                        {"x": 8, "y": 4},
-                        {"x": 12, "y": 10},
-                        {"x": 7, "y": 0},
-                        {"x": 6, "y": 0}
-                    ]
-                },
-                {
-                    "name": "srdissection9913",
-                    "original_name": "tachiawase_3_041",
-                    "sortingnum": 99,
-                    "target_shape_name": "Triangle",
-                    "target_vertex_count": 3,
-                    "initial_vertices": [
-                        {"x": 4, "y": 8},
-                        {"x": 4, "y": 10},
-                        {"x": 10, "y": 10},
-                        {"x": 10, "y": 6},
-                        {"x": 8, "y": 8},
-                        {"x": 8, "y": 6},
-                        {"x": 6, "y": 8},
-                        {"x": 6, "y": 6}
-                    ]
-                },
-                {
-                    "name": "srdissection9914",
-                    "original_name": "tachiawase_3_042",
-                    "sortingnum": 99,
-                    "target_shape_name": "Triangle",
-                    "target_vertex_count": 3,
-                    "initial_vertices": [
-                        {"x": 1, "y": 2},
-                        {"x": 3, "y": 6},
-                        {"x": 6, "y": 6},
-                        {"x": 8, "y": 6},
-                        {"x": 12, "y": 6},
-                        {"x": 11, "y": 4},
-                        {"x": 9, "y": 3},
-                        {"x": 7, "y": 2},
-                        {"x": 8, "y": 4},
-                        {"x": 4, "y": 2},
-                        {"x": 5, "y": 4}
-                    ]
-                },
-                {
-                    "name": "srdissection9915",
-                    "original_name": "tachiawase_3_043",
-                    "sortingnum": 99,
-                    "target_shape_name": "Triangle",
-                    "target_vertex_count": 3,
-                    "initial_vertices": [
-                        {"x": 10, "y": 7},
-                        {"x": 10, "y": 9},
-                        {"x": 8, "y": 15},
-                        {"x": 6, "y": 13},
-                        {"x": 7, "y": 11},
-                        {"x": 3, "y": 7},
-                        {"x": 12, "y": 4},
-                        {"x": 11, "y": 7},
-                        {"x": 11, "y": 5},
-                        {"x": 9, "y": 7},
-                        {"x": 8, "y": 9}
+                        {"x": 7, "y": 8},
+                        {"x": 7, "y": 9},
+                        {"x": 7, "y": 10},
+                        {"x": 7, "y": 12},
+                        {"x": 7, "y": 11}
                     ]
                 }
             ]
         }
     </script>
-    <!-- ▲▲▲ ここまで ▲▲▲ -->
-
 </body>
 </html>
